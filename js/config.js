@@ -1,26 +1,24 @@
 // ═══════════════════════════════════════════════════════════
-// GramAlert Mini App — Configuration
+// GramAlert Mini App — Configuration (connected to real backend)
 // ═══════════════════════════════════════════════════════════
-// Replace the placeholder values below with your actual URLs
-// after deploying to GitHub Pages and setting up your VPS backend.
+// API_BASE_URL = your GramAlert bot's public URL on Vortexacloud + "/api".
+// Replace YOUR-BOT-DOMAIN with the domain Vortexacloud assigns your bot.
+// The bot runs web_api.py on the same process (shared gramalert.db + WalletManager),
+// so the Mini App and the Telegram bot use ONE wallet record per user.
 
 const CONFIG = {
-  // ─── Backend API (Your VPS) ───
-  // Replace with your VPS API base URL
-  // Example: 'https://api.gramalert.com/api'
-  API_BASE_URL: 'https://your-vps-domain.com/api',
+  // ─── Backend API (your bot on Vortexacloud) ───
+  API_BASE_URL: 'https://YOUR-BOT-DOMAIN/api',
 
-  // ─── TON Connect Manifest ───
-  // Replace with your GitHub Pages URL after deployment
-  // Example: 'https://maxiumlyrx.github.io/gramalert/tonconnect-manifest.json'
-  TON_CONNECT_MANIFEST: 'https://your-username.github.io/gramalert-miniapp/tonconnect-manifest.json',
+  // ─── TON Connect Manifest (this GitHub Pages site) ───
+  TON_CONNECT_MANIFEST: 'https://aungsiekhant-dev.github.io/gram-wallet-connect2/tonconnect-manifest.json',
 
-  // ─── CoinGecko (Fallback price source when backend is down) ───
+  // ─── CoinGecko (only used if you want a client-side price fallback) ───
   COINGECKO_API: 'https://api.coingecko.com/api/v3',
   COINGECKO_COIN_ID: 'the-open-network',
 
   // ─── Intervals ───
-  PRICE_REFRESH_INTERVAL: 30000,   // 30 seconds
+  PRICE_REFRESH_INTERVAL: 30000, // 30 seconds
   CHART_MAX_POINTS: 30,
 
   // ─── Telegram Bot Info ───

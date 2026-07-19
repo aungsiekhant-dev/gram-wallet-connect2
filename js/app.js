@@ -32,6 +32,8 @@ const App = {
 
     // Initialize wallet
     await Wallet.init();
+    // Sync wallet from the bot (shared DB) in case it was connected there
+    await Wallet.syncFromBackend();
 
     // Load settings
     try {
@@ -678,10 +680,10 @@ const App = {
     try {
       const info = await API.getWalletInfo();
       if (card && info) {
-        card.innerHTML = `<div class="card-header"><span class="card-title">💰 ${t('wallet_balance')}</span></div><div class="stat-grid"><div class="stat-item"><div class="stat-label">TON Balance</div><div class="stat-value">${info.balance_ton?.toFixed(2) || '0'} TON</div></div><div class="stat-item"><div class="stat-label">USD Value</div><div class="stat-value">${this.fmtPrice(info.balance_usd)}</div></div></div>`;
+        card.innerHTML = `<div class='card-header'><span class='card-title'>💰 ${t('wallet_balance')}</span></div><div class='stat-grid'><div class='stat-item'><div class='stat-label'>TON Balance</div><div class='stat-value'>${(info.balance_ton != null ? Number(info.balance_ton).toFixed(2) : '0')} TON</div></div><div class='stat-item'><div class='stat-label'>GRAM Balance</div><div class='stat-value'>${Number(info.balance_gram || 0).toFixed(2)} GRAM</div></div><div class='stat-item'><div class='stat-label'>Portfolio Value</div><div class='stat-value'>${this.fmtPrice(info.portfolio_value)}</div></div><div class='stat-item'><div class='stat-label'>USD Value</div><div class='stat-value'>${this.fmtPrice(info.balance_usd)}</div></div></div>`;
       }
       if (txList && info?.transactions?.length) {
-        txList.innerHTML = info.transactions.map(tx => `<div class="list-item"><div class="list-item-left"><div class="list-item-icon">${tx.type === 'in' ? '📥' : '📤'}</div><div class="list-item-info"><span class="list-item-title">${tx.type === 'in' ? 'Received' : 'Sent'} ${tx.amount} TON</span><span class="list-item-sub">${this.shortAddr(tx.hash)}</span></div></div><div class="list-item-right"><span class="list-item-sub">${this.fmtTime(new Date(tx.time).getTime())}</span></div></div>`).join('');
+        txList.innerHTML = info.transactions.map(tx => `<div class="list-item"><div class="list-item-left"><div class="list-item-icon">${tx.type === 'in' ? '📥' : '📤'}</div><div class="list-item-info"><span class="list-item-title">${tx.type === 'in' ? 'Received' : 'Sent'} ${tx.amount} TON</span><span class="list-item-sub">${this.shortAddr(tx.hash)}</span></div></div><div class="list-item-right"><span class="list-item-sub">${this.fmtTime((tx.time > 9e11 ? tx.time : tx.time * 1000))}</span></div></div>`).join('');
       } else if (txList) {
         txList.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No transactions yet</p></div>`;
       }
