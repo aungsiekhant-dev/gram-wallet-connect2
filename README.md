@@ -1,178 +1,73 @@
-# GramAlert — Telegram Mini App
+# GramAlert — Unified Production System
 
-A modern, dark-themed Telegram Mini App for GRAM (TON) tracking. Connects to your existing GramAlert Telegram bot backend via API.
+GRAM price tracking Telegram bot **+** Telegram Mini App, sharing **one backend** (`web_api.py`), **one database** (`gramalert.db`), and **one wallet system** per Telegram user.
 
-## 📁 File Structure
+## Architecture
 
-```
-miniapp/
-├── index.html                  # Main HTML entry point
-├── css/
-│   └── style.css               # Dark crypto theme styles
-├── js/
-│   ├── config.js               # API URLs & configuration
-│   ├── i18n.js                 # English + Myanmar translations
-│   ├── api.js                  # API client (with mock data fallback)
-│   ├── wallet.js               # TON Connect wallet integration
-│   └── app.js                  # Main app logic & page renderers
-├── tonconnect-manifest.json    # TON Connect wallet manifest
-└── README.md                   # This file
-```
+The Mini App is a static site (GitHub Pages). Every API call goes to the bot's `web_api.py`, which runs **inside the same Python process** as the bot and shares the same `Database`, `WalletManager`, `TonCenter`, `CoinGeckoClient`, and `Portfolio` objects. There is exactly **one wallet record per Telegram user** — whether connected from the bot or the Mini App.
 
-## 🚀 Deployment (GitHub Pages)
+## Environment Variables
 
-1. **Upload files** to your GitHub repository (e.g. `gramalert-miniapp`)
+All secrets are read from environment variables with **safe fallbacks** (existing deployments keep working). Set these in your hosting panel:
 
-2. **Enable GitHub Pages:**
-   - Go to Settings → Pages
-   - Source: Deploy from branch
-   - Branch: `main` / root
-   - Save
+| Variable               | Default                          | Description                                  |
+|------------------------|----------------------------------|----------------------------------------------|
+| `BOT_TOKEN`          | *(embedded fallback)*           | Telegram bot token from @BotFather           |
+| `TON_API_KEY`        | *(embedded fallback)*           | TON Center API key                           |
+| `WEB_API_PORT`       | `8080`                         | Port for the web API HTTP server             |
+| `WEB_API_PUBLIC_URL` | `https://your-bot-domain.example`| Your bot's public HTTPS URL (no trailing /) |
 
-3. **Update config.js** with your URLs:
-   ```javascript
-   API_BASE_URL: 'https://your-vps-domain.com/api',
-   TON_CONNECT_MANIFEST: 'https://your-username.github.io/gramalert-miniapp/tonconnect-manifest.json',
-   ```
+> ⚠️ Set `BOT_TOKEN`, `WEB_API_PORT`, and `WEB_API_PUBLIC_URL` in your hosting panel. Never commit real tokens to Git.
 
-4. **Update tonconnect-manifest.json** with your GitHub Pages URL
+## Startup
 
-## 🔗 Backend API Setup (Your VPS)
-
-The Mini App sends all requests to your VPS backend. Implement these endpoints:
-
-### Authentication
-- `POST /api/auth/telegram` — Receives Telegram `initData`, verifies it, returns user session
-
-### Price
-- `GET /api/price/gram` — Current GRAM price + 24h stats
-- `GET /api/price/history?days=N` — Price history for charts
-
-### Alerts
-- `GET /api/alerts` — User's active alerts
-- `POST /api/alerts` — Create alert `{ target, direction }`
-- `DELETE /api/alerts/:id` — Delete alert
-
-### Portfolio
-- `GET /api/portfolio` — User's holdings
-- `POST /api/portfolio` — Add holding `{ gram_amount, buy_price }`
-- `DELETE /api/portfolio/:id` — Delete holding
-
-### Wallet (TON Connect)
-- `POST /api/wallet/connect` — `{ telegram_user_id, wallet_address, provider }`
-- `POST /api/wallet/disconnect` — Disconnect wallet
-- `GET /api/wallet/info` — Returns `{ connected, address, balance_ton, balance_usd, transactions[] }`
-
-### Whale Tracking
-- `GET /api/whale/transfers` — Recent large transfers
-- `GET /api/whale/summary` — Daily summary stats
-
-### AI Summary
-- `POST /api/ai/summary` — Returns `{ market_summary, whale_analysis, news_summary }`
-
-### Prediction Game
-- `GET /api/prediction/status` — Today's status `{ is_open, deadline, participants, current_price, user_prediction }`
-- `POST /api/prediction/submit` — `{ predicted_price }`
-- `GET /api/prediction/leaderboard` — Top players
-- `GET /api/prediction/mystats` — User's stats
-
-### News & Notices
-- `GET /api/news` — Latest news posts
-- `GET /api/notices` — Announcements
-
-### Settings
-- `GET /api/settings` — User settings
-- `PUT /api/settings` — Update settings `{ language, notifications_on, update_frequency }`
-
-## 🔐 Authentication
-
-The Mini App uses Telegram Web App's `initData` for authentication:
-
-1. Telegram provides `window.Telegram.WebApp.initData` (signed string)
-2. This is sent as `X-Telegram-Init-Data` header on every API request
-3. Your backend verifies the `initData` using your bot token (HMAC-SHA256)
-4. Extract `user.id` from the verified data for user identification
-
-**Python verification example:**
-```python
-import hmac, hashlib, json
-
-def verify_init_data(init_data: str, bot_token: str) -> dict:
-    """Verify Telegram WebApp initData and return user data."""
-    parsed = dict(urllib.parse.parse_qsl(init_data))
-    received_hash = parsed.pop('hash', '')
-    data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(parsed.items()))
-    secret_key = hmac.new(b'WebAppData', bot_token.encode(), hashlib.sha256).digest()
-    computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-    if computed_hash == received_hash:
-        return json.loads(parsed.get('user', '{}'))
-    return None
+```bash
+python3 main.py
 ```
 
-## 👛 TON Connect Wallet
+On startup, the bot logs a structured ✅/❌ checklist for each component:
 
-The wallet integration uses [TON Connect UI SDK](https://github.com/ton-connect/sdk/tree/main/packages/ui).
-
-When a user connects their wallet:
-1. TON Connect returns the wallet address
-2. The Mini App sends `{ telegram_user_id, wallet_address, provider }` to `POST /api/wallet/connect`
-3. Your backend stores the mapping (Telegram user → wallet address)
-4. Your Telegram bot can now recognize the connected wallet
-
-**Supported wallets:** Tonkeeper, MyTonWallet, TON Wallet, and any TON Connect compatible wallet.
-
-## 📱 Telegram Bot Configuration
-
-Add the Mini App URL to your bot:
-
-1. Talk to [@BotFather](https://t.me/BotFather)
-2. Send `/newapp` or `/editapp`
-3. Provide your GitHub Pages URL (e.g. `https://your-username.github.io/gramalert-miniapp/`)
-4. Set the Mini App button in your bot's menu
-
-**Or configure via Bot API:**
-```python
-# In your Python bot (GramV56.py)
-await bot.set_chat_menu_button(
-    chat_id=chat_id,
-    menu_button=MenuButtonWebApp(
-        text="🚀 Open GramAlert",
-        web_app=WebAppInfo(url="https://your-username.github.io/gramalert-miniapp/")
-    )
-)
+```
+✅ Database Connected (gramalert.db)
+✅ Price Engine Running
+✅ News Sync Running
+✅ Whale Tracker Running
+✅ News Sync — N posts recovered
+✅ Web API Started (port 8080)
+✅ Mini App Backend Ready — https://your-domain/api
+✅ Background Tasks Running (8 scheduler tasks)
+✅ Wallet Monitor Running
+✅ Smart Alert Engine Running
+✅ Telegram Bot Started — 9 background tasks active
 ```
 
-## 🎨 Features
+If a component fails, you'll see `❌ <component> — <error>` and the bot continues serving cached data. No manual recovery needed after restart.
 
-- ✅ Dark crypto dashboard theme
-- ✅ Mobile-first Telegram Mini App
-- ✅ 11 fully functional sections
-- ✅ TON Connect wallet (Tonkeeper, MyTonWallet)
-- ✅ Live GRAM price with charts (Chart.js)
-- ✅ GRAM ↔ USDT converter
-- ✅ Price alerts management
-- ✅ Portfolio with P&L tracking
-- ✅ Whale transfer tracking
-- ✅ AI market summary
-- ✅ Prediction game with leaderboard
-- ✅ News & notices
-- ✅ English + Myanmar language support
-- ✅ API placeholders ready for VPS backend
-- ✅ Mock data fallback (works without backend)
+## Health Check
 
-## ⚠️ Important Notes
+```bash
+curl https://your-bot-domain/api/health
+```
 
-- The Mini App is an **additional interface** — your Telegram bot continues working independently
-- All backend API calls include Telegram `initData` for authentication
-- Mock data is shown when the backend is not connected (useful for development)
-- Update all placeholder URLs in `config.js` and `tonconnect-manifest.json` before deploying
+Returns backend, database, bot, wallet manager, and price engine status.
 
-## 📞 Support
+## Mini App Configuration
 
-- Admin: [@Maxiumlyrx](https://t.me/Maxiumlyrx)
-- Price Channel: [@GramAlert11](https://t.me/GramAlert11)
-- News Channel: [@PePeMission](https://t.me/PePeMission)
+1. Upload `miniapp/` contents to your GitHub Pages repo.
+2. Set `API_BASE_URL` in `miniapp/js/config.js` to your bot domain.
+3. The Mini App authenticates every request via Telegram `initData` HMAC — no passwords.
 
----
+## Deployment (Bot)
 
-⚠️ Not financial advice. Always do your own research.
+1. Upload all `.py` files + `ton/` folder + `ton_connect_webapp.html` to the server.
+2. **Do NOT upload `gramalert.db`** — preserve the existing database.
+3. Set environment variables (see above).
+4. `pip install -r requirements.txt`
+5. `python3 main.py`
+6. Open the assigned port (`WEB_API_PORT`) in the panel firewall.
+
+## Compatibility
+
+- Python 3.12 (also works on 3.10+)
+- python-telegram-bot 21.6
+- No external HTTP framework — `web_api.py` uses only Python stdlib
